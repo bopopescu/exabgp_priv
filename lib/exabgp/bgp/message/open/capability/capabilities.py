@@ -18,6 +18,7 @@ from exabgp.bgp.message.open.capability.ms import MultiSession
 from exabgp.bgp.message.open.capability.operational import Operational
 from exabgp.bgp.message.open.capability.refresh import RouteRefresh
 from exabgp.bgp.message.open.capability.refresh import EnhancedRouteRefresh
+from exabgp.bgp.message.open.capability.bgpsec import BGPSEC
 # from exabgp.bgp.message.open.capability.unknown import UnknownCapability
 
 from exabgp.bgp.message.notification import Notify
@@ -27,15 +28,15 @@ from exabgp.bgp.message.notification import Notify
 #
 
 class Parameter (int):
-	AUTHENTIFICATION_INFORMATION = 0x01  # Depreciated
-	CAPABILITIES                 = 0x02
+    AUTHENTIFICATION_INFORMATION = 0x01  # Depreciated
+    CAPABILITIES                 = 0x02
 
-	def __str__ (self):
-		if self == 0x01:
-			return "AUTHENTIFICATION INFORMATION"
-		if self == 0x02:
-			return "OPTIONAL"
-		return 'UNKNOWN'
+    def __str__ (self):
+        if self == 0x01:
+            return "AUTHENTIFICATION INFORMATION"
+        if self == 0x02:
+            return "OPTIONAL"
+        return 'UNKNOWN'
 
 # =================================================================== Capabilities
 # http://www.iana.org/assignments/capability-codes/
@@ -50,90 +51,95 @@ class Parameter (int):
 
 
 class Capabilities (dict):
-	def announced (self, capability):
-		return capability in self
+    def announced (self, capability):
+        return capability in self
 
-	def __str__ (self):
-		r = []
-		for key in sorted(self.keys()):
-			r.append(str(self[key]))
-		return ', '.join(r)
+    def __str__ (self):
+        r = []
+        for key in sorted(self.keys()):
+            r.append(str(self[key]))
+        return ', '.join(r)
 
-	def _protocol (self, neighbor):
-		families = neighbor.families()
-		mp = MultiProtocol()
-		mp.extend(families)
-		self[Capability.CODE.MULTIPROTOCOL] = mp
+    def _protocol (self, neighbor):
+        families = neighbor.families()
+        mp = MultiProtocol()
+        mp.extend(families)
+        self[Capability.CODE.MULTIPROTOCOL] = mp
 
-	def _asn4 (self, neighbor):
-		if not neighbor.asn4:
-			return
+    def _asn4 (self, neighbor):
+        if not neighbor.asn4:
+            return
 
-		self[Capability.CODE.FOUR_BYTES_ASN] = ASN4(neighbor.local_as)
+        self[Capability.CODE.FOUR_BYTES_ASN] = ASN4(neighbor.local_as)
 
-	def _addpath (self, neighbor):
-		if not neighbor.add_path:
-			return
+    def _addpath (self, neighbor):
+        if not neighbor.add_path:
+            return
 
-		families = neighbor.families()
-		ap_families = []
-		if (AFI(AFI.ipv4),SAFI(SAFI.unicast)) in families:
-			ap_families.append((AFI(AFI.ipv4),SAFI(SAFI.unicast)))
-		if (AFI(AFI.ipv6),SAFI(SAFI.unicast)) in families:
-			ap_families.append((AFI(AFI.ipv6),SAFI(SAFI.unicast)))
-		if (AFI(AFI.ipv4),SAFI(SAFI.nlri_mpls)) in families:
-			ap_families.append((AFI(AFI.ipv4),SAFI(SAFI.nlri_mpls)))
-		if (AFI(AFI.ipv6),SAFI(SAFI.unicast)) in families:
-			ap_families.append((AFI(AFI.ipv6),SAFI(SAFI.unicast)))
-		self[Capability.CODE.ADD_PATH] = AddPath(ap_families,neighbor.add_path)
+        families = neighbor.families()
+        ap_families = []
+        if (AFI(AFI.ipv4),SAFI(SAFI.unicast)) in families:
+            ap_families.append((AFI(AFI.ipv4),SAFI(SAFI.unicast)))
+        if (AFI(AFI.ipv6),SAFI(SAFI.unicast)) in families:
+            ap_families.append((AFI(AFI.ipv6),SAFI(SAFI.unicast)))
+        if (AFI(AFI.ipv4),SAFI(SAFI.nlri_mpls)) in families:
+            ap_families.append((AFI(AFI.ipv4),SAFI(SAFI.nlri_mpls)))
+        if (AFI(AFI.ipv6),SAFI(SAFI.unicast)) in families:
+            ap_families.append((AFI(AFI.ipv6),SAFI(SAFI.unicast)))
+        self[Capability.CODE.ADD_PATH] = AddPath(ap_families,neighbor.add_path)
 
-	def _graceful (self, neighbor, restarted):
-		if not neighbor.graceful_restart:
-			return
+    def _graceful (self, neighbor, restarted):
+        if not neighbor.graceful_restart:
+            return
 
-		self[Capability.CODE.GRACEFUL_RESTART] = Graceful().set(
-			Graceful.RESTART_STATE if restarted else 0x0,
-			neighbor.graceful_restart,
-			[(afi,safi,Graceful.FORWARDING_STATE) for (afi,safi) in neighbor.families()]
-		)
+        self[Capability.CODE.GRACEFUL_RESTART] = Graceful().set(
+            Graceful.RESTART_STATE if restarted else 0x0,
+            neighbor.graceful_restart,
+            [(afi,safi,Graceful.FORWARDING_STATE) for (afi,safi) in neighbor.families()]
+        )
 
-	def _refresh (self, neighbor):
-		if not neighbor.route_refresh:
-			return
-		self[Capability.CODE.ROUTE_REFRESH] = RouteRefresh()
-		self[Capability.CODE.ENHANCED_ROUTE_REFRESH] = EnhancedRouteRefresh()
+    def _refresh (self, neighbor):
+        if not neighbor.route_refresh:
+            return
+        self[Capability.CODE.ROUTE_REFRESH] = RouteRefresh()
+        self[Capability.CODE.ENHANCED_ROUTE_REFRESH] = EnhancedRouteRefresh()
 
-	def _operational (self, neighbor):
-		if not neighbor.operational:
-			return
-		self[Capability.CODE.OPERATIONAL] = Operational()
+    def _operational (self, neighbor):
+        if not neighbor.operational:
+            return
+        self[Capability.CODE.OPERATIONAL] = Operational()
 
-	def _session (self, neighbor):
-		if not neighbor.multisession:
-			return
-		# XXX: FIXME: should it not be the RFC version ?
-		self[Capability.CODE.MULTISESSION] = MultiSession().set([Capability.CODE.MULTIPROTOCOL])
+    def _session (self, neighbor):
+        if not neighbor.multisession:
+            return
+        # XXX: FIXME: should it not be the RFC version ?
+        self[Capability.CODE.MULTISESSION] = MultiSession().set([Capability.CODE.MULTIPROTOCOL])
 
-	def new (self, neighbor, restarted):
-		self._protocol(neighbor)
-		self._asn4(neighbor)
-		self._addpath(neighbor)
-		self._graceful(neighbor,restarted)
-		self._refresh(neighbor)
-		self._operational(neighbor)
-		self._session(neighbor)  # MUST be the last key added, really !?! dict is not ordered !
-		return self
+    def _bgpsec (self, neighbor):
+        self[Capability.CODE.BGPSEC] = BGPSEC()
 
-	def pack (self):
-		rs = []
-		for k,capabilities in self.iteritems():
-			for capability in capabilities.extract():
-				rs.append("%s%s%s" % (chr(k),chr(len(capability)),capability))
-		parameters = "".join(["%s%s%s" % (chr(2),chr(len(r)),r) for r in rs])
-		return "%s%s" % (chr(len(parameters)),parameters)
 
-	@staticmethod
-	def unpack (data):
+    def new (self, neighbor, restarted):
+        self._protocol(neighbor)
+        self._asn4(neighbor)
+        self._addpath(neighbor)
+        self._graceful(neighbor,restarted)
+        self._refresh(neighbor)
+        self._operational(neighbor)
+        self._session(neighbor)  # MUST be the last key added, really !?! dict is not ordered !
+        self._bgpsec(neighbor)
+        return self
+
+    def pack (self):
+        rs = []
+        for k,capabilities in self.iteritems():
+            for capability in capabilities.extract():
+                rs.append("%s%s%s" % (chr(k),chr(len(capability)),capability))
+        parameters = "".join(["%s%s%s" % (chr(2),chr(len(r)),r) for r in rs])
+        return "%s%s" % (chr(len(parameters)),parameters)
+
+    @staticmethod
+    def unpack (data):
 		def _key_values (name, data):
 			if len(data) < 2:
 				raise Notify(2,0,"Bad length for OPEN %s (<2) %s" % (name,Capability.hex(data)))

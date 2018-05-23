@@ -17,6 +17,7 @@ from exabgp.bgp.message.open.capability.operational import Operational
 from exabgp.bgp.message.open.capability.refresh import RouteRefresh
 from exabgp.bgp.message.open.capability.refresh import EnhancedRouteRefresh
 from exabgp.bgp.message.open.capability.unknown import UnknownCapability
+from exabgp.bgp.message.open.capability.bgpsec import BGPSEC
 
 # Must be imported and registered for the register API to work
 Capability.register_capability(AddPath)
@@ -29,6 +30,7 @@ Capability.register_capability(Operational)
 Capability.register_capability(RouteRefresh,Capability.CODE.ROUTE_REFRESH)
 Capability.register_capability(RouteRefresh,Capability.CODE.ROUTE_REFRESH_CISCO)
 Capability.register_capability(EnhancedRouteRefresh)
+Capability.register_capability(BGPSEC)
 Capability.fallback_capability(UnknownCapability)
 # End registration
 

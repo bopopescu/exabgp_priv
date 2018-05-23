@@ -110,7 +110,7 @@ class Update (Message):
 
 		for nlri in self.nlris:
 			if nlri.family() in negotiated.families:
-				if nlri.afi == AFI.ipv4 and nlri.safi in [SAFI.unicast, SAFI.multicast]:
+				if nlri.afi == AFI.ipv4 and nlri.safi in [SAFI.unicast, SAFI.multicast] and not hasattr(negotiated.neighbor,'bgpsec'):
 					if nlri.action == OUT.ANNOUNCE:
 						add_nlri.append(nlri)
 					else:

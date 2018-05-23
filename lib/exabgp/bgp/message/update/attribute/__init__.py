@@ -25,6 +25,7 @@ from exabgp.bgp.message.update.attribute.mprnlri import MPRNLRI
 from exabgp.bgp.message.update.attribute.mpurnlri import MPURNLRI
 from exabgp.bgp.message.update.attribute.pmsi import PMSI
 from exabgp.bgp.message.update.attribute.aigp import AIGP
+from exabgp.bgp.message.update.attribute.bgpsec import BGPSEC
 
 
 Attribute.register_attribute(Origin)
@@ -44,3 +45,4 @@ Attribute.register_attribute(MPRNLRI)
 Attribute.register_attribute(MPURNLRI)
 Attribute.register_attribute(PMSI)
 Attribute.register_attribute(AIGP)
+Attribute.register_attribute(BGPSEC)

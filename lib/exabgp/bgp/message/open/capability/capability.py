@@ -23,6 +23,7 @@ class Capability (object):
 		OUTBOUND_ROUTE_FILTERING = 0x03  # [RFC5291]
 		MULTIPLE_ROUTES          = 0x04  # [RFC3107]
 		EXTENDED_NEXT_HOP        = 0x05  # [RFC5549]
+		BGPSEC                   = 0x07  # [RFC8205]
 		# 6-63      Unassigned
 		GRACEFUL_RESTART         = 0x40  # [RFC4724]
 		FOUR_BYTES_ASN           = 0x41  # [RFC4893]
@@ -52,6 +53,7 @@ class Capability (object):
 			OUTBOUND_ROUTE_FILTERING:  'outbound-route-filtering',
 			MULTIPLE_ROUTES:           'multiple-routes',
 			EXTENDED_NEXT_HOP:         'extended-next-hop',
+            BGPSEC:                    'bgpsec',
 
 			GRACEFUL_RESTART:          'graceful-restart',
 			FOUR_BYTES_ASN:            'asn4',
