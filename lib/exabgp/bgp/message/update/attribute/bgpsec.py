@@ -8,6 +8,9 @@ Copyright NIST. All rights reserved.
 
 from exabgp.bgp.message.update.attribute.attribute import Attribute
 from struct import pack
+from exabgp.cryptobgpsec import *
+from exabgp import cryptobgpsec
+import ctypes
 #from struct import unpack
 
 class BGPSEC (Attribute):
@@ -17,8 +20,9 @@ class BGPSEC (Attribute):
     PCOUNT  = 0x01
     SP_FLAG = 0x00 # secure path segment flag
     ALGO_ID = 0x01
-    SKI     = 'C30433FA1975FF193181458FB902B501EA9789DC'
-    TEMP_SIG = "30 46 02 21 00 d5 e6 98 23 2a c6 ba b3 cf 23 30 b3 1e 0a 03 72 99 c6 14 13 55 fd 45 9d 3c 96 73 e4 c9 a0 14 ec 02 21 00 e1 03 f0 74 14 f3 ef 80 ca 99 15 10 3d df 0b 39 a7 45 cf eb 70 2f c5 13 39 45 7e cd f5 65 4d 4e"
+    #SKI     = 'C30433FA1975FF193181458FB902B501EA9789DC'
+    #SKI     = '492AAE72485D926CACDA2D259BE19DAE82DFBDE3'
+    #TEMP_SIG = "30 46 02 21 00 d5 e6 98 23 2a c6 ba b3 cf 23 30 b3 1e 0a 03 72 99 c6 14 13 55 fd 45 9d 3c 96 73 e4 c9 a0 14 ec 02 21 00 e1 03 f0 74 14 f3 ef 80 ca 99 15 10 3d df 0b 39 a7 45 cf eb 70 2f c5 13 39 45 7e cd f5 65 4d 4e"
     SIG_LEN = 2
     SKI_LEN = 20
     SEC_PATH_LEN = 2
@@ -32,10 +36,15 @@ class BGPSEC (Attribute):
     secure_path_len = 0
     signature_block_len = 0
 
+    init_lib = 0
+    ski_str =''
 
-    def __init__ (self, negotiated, packed=None):
+    def __init__ (self, negotiated, nlri={}, packed=None):
         self.negotiated = negotiated
         self.packed = packed
+        if nlri:
+            self.nlri_ip = nlri[(1,1)][0].ip
+            self.nlri_mask = nlri[(1,1)][0].mask
 
 
     def _secure_path_segment (self, negotiated):
@@ -51,15 +60,85 @@ class BGPSEC (Attribute):
         self.secure_path = self._secure_path_segment(negotiated)
         return "%s%s" % (pack('!H', (self.secure_path_len+self.SEC_PATH_LEN)), ''.join(self.secure_path))
 
+
+    def _signature_from_lib (self):
+        if BGPSEC.init_lib != 1:
+            value_type = ctypes.c_char_p
+            value = value_type("PRIV:/users/kyehwanl/proj-bgp/extras/srxcryptoapi/keys/priv-ski-list.txt")
+
+            initReturnVal = ctypes.c_uint32()
+            init(value, 7, initReturnVal)
+            BGPSEC.init_lib = 1
+
+
+        host = SCA_BGPSEC_SecurePathSegment()
+        host.pCount = 1
+        host.flags = 0
+        #host.asn = socket.htonl(65005)
+        host.asn = socket.htonl(self.negotiated.local_as)
+
+        addr = ADDR()
+        #addr.ipV4 = socket.htonl(struct.unpack("!L", socket.inet_aton("30.40.0.0"))[0])
+        addr.ipV4 = socket.htonl(struct.unpack("!L", socket.inet_aton(self.nlri_ip))[0])
+
+        nlri = SCA_Prefix()
+        nlri.afi = socket.htons(1)
+        nlri.safi = 1
+        #nlri.length = 24
+        nlri.length = self.nlri_mask
+        nlri.addr = addr
+
+        ski_type = ctypes.c_char_p
+
+        bgpsec_data = SCA_BGPSecSignData()
+        bgpsec_data.peerAS = socket.htonl(self.negotiated.peer_as)
+        bgpsec_data.myHost = ctypes.pointer(host)
+        bgpsec_data.nlri = ctypes.pointer(nlri)
+        #bgpsec_data.myASN = socket.htonl(65005)
+        bgpsec_data.myASN = socket.htonl(self.negotiated.local_as)
+
+        #ski_data = '45CAD0AC44F77EFAA94602E9984305215BF47DCD'
+        #ski_data = 'C30433FA1975FF193181458FB902B501EA9789DC'
+        #ski_data = '492AAE72485D926CACDA2D259BE19DAE82DFBDE3'
+        ski_data = self.ski_str
+        _ski_data = [ ski_data[i:i+2] for i in range(0, len(ski_data), 2)]
+        ski_bin =  [ chr(int(_ski_data[i],16)) for i in range(0,len(_ski_data))]
+        bgpsec_data.ski = ski_type('%s' % ''.join(["%s" % x for x in ski_bin]))
+
+        bgpsec_data.algorithmID = 1
+        bgpsec_data.status = 1
+
+        hashMsg = SCA_HashMessage()
+        hashMsg.ownedByAPI = 0
+        hashMsg.bufferSize = 100
+        hashMsg.buffer  = None
+        hashMsg.segmentCount = 1
+        hashMsg.hashMessageValPtr = None
+        #bgpsec_data.hashMessage = ctypes.pointer(hashMsg)
+        bgpsec_data.hashMessage = None
+
+        signatureData = SCA_Signature()
+        bgpsec_data.signature = ctypes.pointer(signatureData)
+
+        ret_val = cryptobgpsec._sign(bgpsec_data)
+        ret_sig = [ chr(bgpsec_data.signature.contents.sigBuff[i]) for i in range(0, bgpsec_data.signature.contents.sigLen)]
+        #ret_val = _sign(bgpsec_data)
+        #print ret_sig
+        return ret_sig
+
+
     #
     # TODO: crypto library processing required
     #       Currently, using TEMP_SIG variable for testing
     #
     def _signature (self):
         signature = []
-        step = 3
-        splitTEMP_SIG = [self.TEMP_SIG[i:i+step-1] for i in range(0, len(self.TEMP_SIG), step)]
-        signature = [ chr(int(splitTEMP_SIG[i], 16)) for i in range (0, len(splitTEMP_SIG))]
+
+        #step = 3
+        #splitTEMP_SIG = [self.TEMP_SIG[i:i+step-1] for i in range(0, len(self.TEMP_SIG), step)]
+        #signature = [ chr(int(splitTEMP_SIG[i], 16)) for i in range (0, len(splitTEMP_SIG))]
+
+        signature = self._signature_from_lib()
         self.signature_block_len += len(signature)
         return "%s%s" % ( pack('!H', len(signature)), ''.join(signature))
 
@@ -68,7 +147,9 @@ class BGPSEC (Attribute):
         sig_segment = []
         # split SKI string into 2 letters
         step = 2
-        splitSKI = [self.SKI[i:i+step] for i in range(0, len(self.SKI), step) ]
+        self.ski_str = self.negotiated.neighbor.ski[0]
+        splitSKI = [self.ski_str[i:i+step] for i in range(0, len(self.ski_str), step) ]
+        #splitSKI = [self.SKI[i:i+step] for i in range(0, len(self.SKI), step) ]
 
         # convert hexstring into integer
         result = [ chr( int(splitSKI[i], 16)) for i in range (0, len(splitSKI))]

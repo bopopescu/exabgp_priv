@@ -745,8 +745,14 @@ class Configuration (object):
             if command == 'manual-eor':
                 return self._set_boolean(scope,'manual-eor',tokens[1:])
             if command == 'bgpsec':
-                self.logger.configuration('----- bgpsec here ------')
+                self.logger.configuration('+++ bgpsec ENABLED')
                 return self._set_bgpsec(scope, 'bgpsec', tokens[1:])
+            if command == 'ski':
+                self.logger.configuration('+++ ski: %s' % ''.join(tokens[1:]))
+                return self._set_ski(scope, 'ski', tokens[1:])
+            if command == 'bgpsec_libloc':
+                self.logger.configuration('+++ crypto library at: %s' % ''.join(tokens[1:]))
+                return self._set_bgpsec_libloc(scope, 'bgpsec_libloc', tokens[1:])
 
 
         elif name == 'family':
@@ -1338,6 +1344,15 @@ class Configuration (object):
             if value:
                 neighbor.bgpsec = value
                 print 'bgpsec here 2222'
+            value = local_scope.get('ski', '')
+            if value:
+                neighbor.ski = value
+                print 'ski %s' % value
+            value = local_scope.get('bgpsec_libloc', '')
+            if value:
+                neighbor.bgpsec_libloc= value
+                print 'bgpsec library location: %s' % value
+
 
             neighbor.changes = local_scope.get('announce',[])
             messages = local_scope.get('operational',[])
@@ -1520,7 +1535,7 @@ class Configuration (object):
                     'description','router-id','local-address','local-as','peer-as',
                     'passive','listen','hold-time','add-path','graceful-restart','md5',
                     'ttl-security','multi-session','group-updates','asn4','aigp',
-                    'auto-flush','adj-rib-out','manual-eor', 'bgpsec'
+                    'auto-flush','adj-rib-out','manual-eor', 'bgpsec', 'ski', 'bgpsec_libloc'
                 ]
             )
             if r is False:
@@ -1542,6 +1557,14 @@ class Configuration (object):
 
     def _set_bgpsec (self, scope, command, value):
         scope[-1][command] = True
+        return True
+
+    def _set_ski (self, scope, command, value):
+        scope[-1][command] = value
+        return True
+
+    def _set_bgpsec_libloc (self, scope, command, value):
+        scope[-1][command] = value
         return True
 
     def _set_ip (self, scope, command, value):

@@ -125,7 +125,7 @@ class Update (Message):
 			return
 
 		if add_nlri or add_mp:
-			attr = self.attributes.pack(negotiated,True)
+			attr = self.attributes.pack(negotiated,True, add_mp)
 		else:
 			attr = ''
 

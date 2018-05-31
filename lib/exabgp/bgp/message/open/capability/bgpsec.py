@@ -35,3 +35,9 @@ class BGPSEC (Capability, dict):
               '\x00\x00\x01' ]
         return rs
         #return ["%s%s%s" % pack('!BBB',self)]
+
+    @staticmethod
+    def unpack_capability (instance, data, capability=None):  # pylint: disable=W0613
+        return instance
+
+

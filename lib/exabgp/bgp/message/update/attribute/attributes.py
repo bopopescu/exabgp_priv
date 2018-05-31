@@ -164,7 +164,7 @@ class Attributes (dict):
     def withdraw (self):
         return self.pop(Attribute.CODE.INTERNAL_WITHDRAW,None) is not None
 
-    def pack (self, negotiated, with_default=True):
+    def pack (self, negotiated, with_default=True, add_mp={}):
         local_asn = negotiated.local_as
         peer_asn = negotiated.peer_as
 
@@ -172,13 +172,16 @@ class Attributes (dict):
 
         default = {
             Attribute.CODE.ORIGIN: lambda l,r: Origin(Origin.IGP),
-            Attribute.CODE.AS_PATH: lambda l,r: ASPath([],[]) if l == r else ASPath([local_asn,],[]),
+            #Attribute.CODE.AS_PATH: lambda l,r: ASPath([],[]) if l == r else ASPath([local_asn,],[]),
             Attribute.CODE.LOCAL_PREF: lambda l,r: LocalPreference(100) if l == r else NOTHING,
         }
 
         if hasattr(negotiated.neighbor,'bgpsec'):
             if negotiated.neighbor.bgpsec:
-                default[Attribute.CODE.BGPSEC] = lambda l,r: BGPSEC(negotiated)
+                default[Attribute.CODE.BGPSEC] = lambda l,r: BGPSEC(negotiated, add_mp)
+            else:
+                default[Attribute.CODE.AS_PATH] = lambda l,r: ASPath([],[]) if l == r else ASPath([local_asn,],[])
+
 
         check = {
             Attribute.CODE.NEXT_HOP: lambda l,r,nh: nh.ipv4() is True,
