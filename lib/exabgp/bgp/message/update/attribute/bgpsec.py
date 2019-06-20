@@ -8,9 +8,9 @@ Copyright NIST. All rights reserved.
 
 from exabgp.bgp.message.update.attribute.attribute import Attribute
 from struct import pack
-from exabgp.cryptobgpsec import *
+#from exabgp.cryptobgpsec import *
 from exabgp import cryptobgpsec
-import ctypes
+#import ctypes
 #from struct import unpack
 
 class BGPSEC (Attribute):
@@ -46,6 +46,7 @@ class BGPSEC (Attribute):
             self.nlri_ip = nlri[(1,1)][0].ip
             self.nlri_mask = nlri[(1,1)][0].mask
 
+        self.crtbgp = cryptobgpsec.CryptoBgpsec()
 
     def _secure_path_segment (self, negotiated):
         segment = []
@@ -63,74 +64,15 @@ class BGPSEC (Attribute):
 
     def _signature_from_lib (self):
         if BGPSEC.init_lib != 1:
-            value_type = ctypes.c_char_p
-            value = value_type("PRIV:/users/kyehwanl/proj-bgp/extras/srxcryptoapi/keys/priv-ski-list.txt")
-
-            initReturnVal = ctypes.c_uint32()
-            init(value, 7, initReturnVal)
+            self.crtbgp.crypto_init("PRIV:/users/kyehwanl/proj-bgp/extras/srxcryptoapi/keys/priv-ski-list.txt", 7)
             BGPSEC.init_lib = 1
 
 
-        host = SCA_BGPSEC_SecurePathSegment()
-        host.pCount = 1
-        host.flags = 0
-        #host.asn = socket.htonl(65005)
-        host.asn = socket.htonl(self.negotiated.local_as)
-
-        addr = ADDR()
-        #addr.ipV4 = socket.htonl(struct.unpack("!L", socket.inet_aton("30.40.0.0"))[0])
-        addr.ipV4 = socket.htonl(struct.unpack("!L", socket.inet_aton(self.nlri_ip))[0])
-
-        nlri = SCA_Prefix()
-        nlri.afi = socket.htons(1)
-        nlri.safi = 1
-        #nlri.length = 24
-        nlri.length = self.nlri_mask
-        nlri.addr = addr
-
-        ski_type = ctypes.c_char_p
-
-        bgpsec_data = SCA_BGPSecSignData()
-        bgpsec_data.peerAS = socket.htonl(self.negotiated.peer_as)
-        bgpsec_data.myHost = ctypes.pointer(host)
-        bgpsec_data.nlri = ctypes.pointer(nlri)
-        #bgpsec_data.myASN = socket.htonl(65005)
-        bgpsec_data.myASN = socket.htonl(self.negotiated.local_as)
-
-        #ski_data = '45CAD0AC44F77EFAA94602E9984305215BF47DCD'
-        #ski_data = 'C30433FA1975FF193181458FB902B501EA9789DC'
-        #ski_data = '492AAE72485D926CACDA2D259BE19DAE82DFBDE3'
-        ski_data = self.ski_str
-        _ski_data = [ ski_data[i:i+2] for i in range(0, len(ski_data), 2)]
-        ski_bin =  [ chr(int(_ski_data[i],16)) for i in range(0,len(_ski_data))]
-        bgpsec_data.ski = ski_type('%s' % ''.join(["%s" % x for x in ski_bin]))
-
-        bgpsec_data.algorithmID = 1
-        bgpsec_data.status = 1
-
-        hashMsg = SCA_HashMessage()
-        hashMsg.ownedByAPI = 0
-        hashMsg.bufferSize = 100
-        hashMsg.buffer  = None
-        hashMsg.segmentCount = 1
-        hashMsg.hashMessageValPtr = None
-        #bgpsec_data.hashMessage = ctypes.pointer(hashMsg)
-        bgpsec_data.hashMessage = None
-
-        signatureData = SCA_Signature()
-        bgpsec_data.signature = ctypes.pointer(signatureData)
-
-        ret_val = cryptobgpsec._sign(bgpsec_data)
-        ret_sig = [ chr(bgpsec_data.signature.contents.sigBuff[i]) for i in range(0, bgpsec_data.signature.contents.sigLen)]
-        #ret_val = _sign(bgpsec_data)
-        #print ret_sig
+        ret_sig = self.crtbgp.crypto_sign(self.negotiated.local_as, self.negotiated.peer_as, self.nlri_ip, self.nlri_mask, self.ski_str)
         return ret_sig
 
 
-    #
-    # TODO: crypto library processing required
-    #       Currently, using TEMP_SIG variable for testing
-    #
+
     def _signature (self):
         signature = []
 

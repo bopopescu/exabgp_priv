@@ -1,4 +1,11 @@
 
+"""
+cryptobgpsec.py
+
+Created by Kyehwan Lee on 2018-01-19.
+Copyright NIST. All rights reserved.
+"""
+
 import ctypes
 import os
 import socket
@@ -18,6 +25,7 @@ _path = os.path.join(*(os.path.split(__file__)[:-1] + (bgpopenssl_file,)))
 
 bgpopenssl = ctypes.cdll.LoadLibrary(_path)
 #srxcryptoapi = ctypes.cdll.LoadLibrary(srxcryptoapi_file)
+
 
 
 
@@ -101,10 +109,114 @@ init.restype = ctypes.c_int
 #setKeyPath.restype = ctypes.c_int
 
 
+class CryptoBgpsec() :
+
+    bgpsec_openssl_file     = '/users/kyehwanl/Quagga_test/Proces_Performance/QuaggaSRxSuite/_inst/lib/srx/libSRxBGPSecOpenSSL.so'
+    _path = os.path.join(*(os.path.split(__file__)[:-1] + (bgpsec_openssl_file,)))
+    bgpsec_openssl = ctypes.cdll.LoadLibrary(_path)
+
+
+    # int sign(int count, SCA_BGPSecSignData** bgpsec_data)
+    sign = bgpsec_openssl.sign
+    sign.argtypes = (ctypes.c_int, ctypes.POINTER(ctypes.POINTER(SCA_BGPSecSignData)))
+    sign.restype = ctypes.c_int
+
+
+    # int _sign(SCA_BGPSecSignData* bgpsec_data)
+    _sign = bgpsec_openssl._sign
+    _sign.argtypes = ctypes.POINTER(SCA_BGPSecSignData),
+    _sign.restype = ctypes.c_int
+
+    # int init(const char* value, int debugLevel, sca_status_t* status);
+    init = bgpsec_openssl.init
+    init.argtypes = (ctypes.POINTER(ctypes.c_char), ctypes.c_int, ctypes.POINTER(ctypes.c_uint32))
+    init.restype = ctypes.c_int
+
+
+    def __init__ (self, negotiated=None):
+        self.negotiated = negotiated
+        self.crypto_init_value_type = ctypes.c_char_p
+
+
+    def crypto_init (self, init_str, debug_type):
+        ret_init_value = self.crypto_init_value_type(init_str)
+        initReturnVal = ctypes.c_uint32()
+
+        # call API's init function
+        self.init(ret_init_value, debug_type, initReturnVal)
+        #return initReturnVal
+
+
+    def crypto_sign (self, host_asn, peer_asn, prefix_str, nlri_mask, ski_data ) :
+
+        host = SCA_BGPSEC_SecurePathSegment()
+        host.pCount = 1
+        host.flags = 0
+        host.asn = socket.htonl(host_asn)
+
+        addr = ADDR()
+        addr.ipV4 = socket.htonl(struct.unpack("!L", socket.inet_aton(prefix_str))[0])
+
+        nlri = SCA_Prefix()
+        nlri.afi = socket.htons(1)
+        nlri.safi = 1
+        nlri.length = nlri_mask
+        nlri.addr = addr
+
+        ski_type = ctypes.c_char_p
+
+        bgpsec_data = SCA_BGPSecSignData()
+        bgpsec_data.peerAS = socket.htonl(peer_asn)
+        bgpsec_data.myHost = ctypes.pointer(host)
+        bgpsec_data.nlri = ctypes.pointer(nlri)
+        bgpsec_data.myASN = socket.htonl(host_asn)
+
+        #ski_data = 'C30433FA1975FF193181458FB902B501EA9789DC'
+        _ski_data = [ ski_data[i:i+2] for i in range(0, len(ski_data), 2)]
+        ski_bin =  [ chr(int(_ski_data[i],16)) for i in range(0,len(_ski_data))]
+        bgpsec_data.ski = ski_type('%s' % ''.join(["%s" % x for x in ski_bin]))
+
+        bgpsec_data.algorithmID = 1
+        bgpsec_data.status = 1
+
+        hashMsg = SCA_HashMessage()
+        hashMsg.ownedByAPI = 0
+        hashMsg.bufferSize = 100
+        hashMsg.buffer  = None
+        hashMsg.segmentCount = 1
+        hashMsg.hashMessageValPtr = None
+        bgpsec_data.hashMessage = None
+
+        signatureData = SCA_Signature()
+        bgpsec_data.signature = ctypes.pointer(signatureData)
+
+
+        ret_val = self._sign(bgpsec_data)
+
+        ret_sig = None
+        if ret_val ==  1:  #API_SUCCESS :1
+            ret_sig = [ chr(bgpsec_data.signature.contents.sigBuff[i]) for i in range(0, bgpsec_data.signature.contents.sigLen)]
+        return ret_sig
+
+
+
+
+
 
 if __name__ == '__main__' :
-    print 'SRxCryptoAPI library testing'
+    print '-------- SRxCryptoAPI library testing WITH CLASS ------------'
 
+    print '++ Initiating'
+    crtbgp = CryptoBgpsec()
+    crtbgp.crypto_init("PRIV:/users/kyehwanl/proj-bgp/extras/srxcryptoapi/keys/priv-ski-list.txt", 7)
+
+    print '++ Signing'
+
+    ski_data = 'C30433FA1975FF193181458FB902B501EA9789DC'
+    ret_sig = crtbgp.crypto_sign(60002, 60003, "10.1.1.2", 24, ski_data)
+
+    print ret_sig
+    exit()
 
     #path_type = ctypes.c_char_p
     #path_str = path_type("/opt/project/srx_test1/keys/")
@@ -117,6 +229,7 @@ if __name__ == '__main__' :
     #    value:  init_value
     #           = "PUB:/opt/project/srx_test1/keys/ski-list.txt;PRIV:/opt/project/srx_test1/keys/priv-ski-list.txt";
 
+    print '-------- SRxCryptoAPI library testing ------------'
     value_type = ctypes.c_char_p
     value = value_type("PRIV:/users/kyehwanl/proj-bgp/extras/srxcryptoapi/keys/priv-ski-list.txt")
     #value = value_type("PRIV:/opt/project/srx_test1/keys/priv-ski-list.txt")
