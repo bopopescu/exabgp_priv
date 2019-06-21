@@ -46,7 +46,7 @@ class BGPSEC (Attribute):
             self.nlri_ip = nlri[(1,1)][0].ip
             self.nlri_mask = nlri[(1,1)][0].mask
 
-        self.crtbgp = cryptobgpsec.CryptoBgpsec()
+        self.crtbgp = cryptobgpsec.CryptoBgpsec(negotiated)
 
     def _secure_path_segment (self, negotiated):
         segment = []
@@ -64,11 +64,11 @@ class BGPSEC (Attribute):
 
     def _signature_from_lib (self):
         if BGPSEC.init_lib != 1:
-            self.crtbgp.crypto_init("PRIV:/users/kyehwanl/proj-bgp/extras/srxcryptoapi/keys/priv-ski-list.txt", 7)
+            self.crtbgp.crypto_init(self.negotiated.neighbor.bgpsec_crypto_init[0], 7)
             BGPSEC.init_lib = 1
 
-
-        ret_sig = self.crtbgp.crypto_sign(self.negotiated.local_as, self.negotiated.peer_as, self.nlri_ip, self.nlri_mask, self.ski_str)
+        ret_sig = self.crtbgp.crypto_sign(self.negotiated.local_as, self.negotiated.peer_as,
+                    self.nlri_ip, self.nlri_mask, self.ski_str)
         return ret_sig
 
 

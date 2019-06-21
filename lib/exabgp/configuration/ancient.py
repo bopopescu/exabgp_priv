@@ -525,6 +525,8 @@ class Configuration (object):
                 r.append([command,string,';'])
             elif replaced[:3] == 'run':
                 r.append([t for t in replaced[:-1].split(' ',1) if t] + [replaced[-1]])
+            elif replaced[:6] == 'bgpsec':
+                r.append([t for t in replaced[:-1].split(' ',1) if t] + [replaced[-1]])
             else:
                 r.append([t.lower() for t in replaced[:-1].split(' ') if t] + [replaced[-1]])
         self.logger.config(config)
@@ -753,6 +755,13 @@ class Configuration (object):
             if command == 'bgpsec_libloc':
                 self.logger.configuration('+++ crypto library at: %s' % ''.join(tokens[1:]))
                 return self._set_bgpsec_libloc(scope, 'bgpsec_libloc', tokens[1:])
+            if command == 'bgpsec_openssl_lib':
+                self.logger.configuration('+++ openssl library file at: %s' % ''.join(tokens[1:]))
+                return self._set_bgpsec_openssl_lib(scope, 'bgpsec_openssl_lib', tokens[1:])
+            if command == 'bgpsec_crypto_init':
+                self.logger.configuration('+++ bgpsec crypto init file at: %s' % ''.join(tokens[1:]))
+                return self._set_bgpsec_crypto_init(scope, 'bgpsec_crypto_init', tokens[1:])
+
 
 
         elif name == 'family':
@@ -1343,16 +1352,23 @@ class Configuration (object):
             value = local_scope.get('bgpsec', False)
             if value:
                 neighbor.bgpsec = value
-                print 'bgpsec here 2222'
+                print 'bgpsec enabled'
             value = local_scope.get('ski', '')
             if value:
                 neighbor.ski = value
                 print 'ski %s' % value
             value = local_scope.get('bgpsec_libloc', '')
             if value:
-                neighbor.bgpsec_libloc= value
+                neighbor.bgpsec_libloc = value
                 print 'bgpsec library location: %s' % value
-
+            value = local_scope.get('bgpsec_openssl_lib', '')
+            if value:
+                neighbor.bgpsec_openssl_lib = value
+                print 'bgpsec openssl lib: %s' % value
+            value = local_scope.get('bgpsec_crypto_init', '')
+            if value:
+                neighbor.bgpsec_crypto_init = value
+                print 'bgpsec crypto library init: %s' % value
 
             neighbor.changes = local_scope.get('announce',[])
             messages = local_scope.get('operational',[])
@@ -1535,7 +1551,8 @@ class Configuration (object):
                     'description','router-id','local-address','local-as','peer-as',
                     'passive','listen','hold-time','add-path','graceful-restart','md5',
                     'ttl-security','multi-session','group-updates','asn4','aigp',
-                    'auto-flush','adj-rib-out','manual-eor', 'bgpsec', 'ski', 'bgpsec_libloc'
+                    'auto-flush','adj-rib-out','manual-eor', 'bgpsec', 'ski', 'bgpsec_libloc',
+                    'bgpsec_openssl_lib', 'bgpsec_crypto_init'
                 ]
             )
             if r is False:
@@ -1566,6 +1583,15 @@ class Configuration (object):
     def _set_bgpsec_libloc (self, scope, command, value):
         scope[-1][command] = value
         return True
+
+    def _set_bgpsec_openssl_lib (self, scope, command, value):
+        scope[-1][command] = value
+        return True
+
+    def _set_bgpsec_crypto_init (self, scope, command, value):
+        scope[-1][command] = value
+        return True
+
 
     def _set_ip (self, scope, command, value):
         try:

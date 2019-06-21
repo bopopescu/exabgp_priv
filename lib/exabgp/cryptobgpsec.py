@@ -111,32 +111,38 @@ init.restype = ctypes.c_int
 
 class CryptoBgpsec() :
 
-    bgpsec_openssl_file     = '/users/kyehwanl/Quagga_test/Proces_Performance/QuaggaSRxSuite/_inst/lib/srx/libSRxBGPSecOpenSSL.so'
-    _path = os.path.join(*(os.path.split(__file__)[:-1] + (bgpsec_openssl_file,)))
-    bgpsec_openssl = ctypes.cdll.LoadLibrary(_path)
-
-
-    # int sign(int count, SCA_BGPSecSignData** bgpsec_data)
-    sign = bgpsec_openssl.sign
-    sign.argtypes = (ctypes.c_int, ctypes.POINTER(ctypes.POINTER(SCA_BGPSecSignData)))
-    sign.restype = ctypes.c_int
-
-
-    # int _sign(SCA_BGPSecSignData* bgpsec_data)
-    _sign = bgpsec_openssl._sign
-    _sign.argtypes = ctypes.POINTER(SCA_BGPSecSignData),
-    _sign.restype = ctypes.c_int
-
-    # int init(const char* value, int debugLevel, sca_status_t* status);
-    init = bgpsec_openssl.init
-    init.argtypes = (ctypes.POINTER(ctypes.c_char), ctypes.c_int, ctypes.POINTER(ctypes.c_uint32))
-    init.restype = ctypes.c_int
-
+    _BUFF_SIZE = 100
+    _ALGO_ID = 1
+    _PCOUNT = 1
+    _FLAGS = 0
 
     def __init__ (self, negotiated=None):
         self.negotiated = negotiated
         self.crypto_init_value_type = ctypes.c_char_p
 
+        if negotiated != None :
+            self.bgpsec_openssl_lib = self.negotiated.neighbor.bgpsec_openssl_lib[0]
+        else :
+            self.bgpsec_openssl_lib = '/users/kyehwanl/Quagga_test/Proces_Performance/QuaggaSRxSuite/_inst/lib/srx/libSRxBGPSecOpenSSL.so'
+        self._path = os.path.join(*(os.path.split(__file__)[:-1] + (self.bgpsec_openssl_lib,)))
+        self.bgpsec_openssl = ctypes.cdll.LoadLibrary(self._path)
+
+
+        # int sign(int count, SCA_BGPSecSignData** bgpsec_data)
+        self.sign = self.bgpsec_openssl.sign
+        self.sign.argtypes = (ctypes.c_int, ctypes.POINTER(ctypes.POINTER(SCA_BGPSecSignData)))
+        self.sign.restype = ctypes.c_int
+
+
+        # int _sign(SCA_BGPSecSignData* bgpsec_data)
+        self._sign = self.bgpsec_openssl._sign
+        self._sign.argtypes = ctypes.POINTER(SCA_BGPSecSignData),
+        self._sign.restype = ctypes.c_int
+
+        # int init(const char* value, int debugLevel, sca_status_t* status);
+        self.init = self.bgpsec_openssl.init
+        self.init.argtypes = (ctypes.POINTER(ctypes.c_char), ctypes.c_int, ctypes.POINTER(ctypes.c_uint32))
+        self.init.restype = ctypes.c_int
 
     def crypto_init (self, init_str, debug_type):
         ret_init_value = self.crypto_init_value_type(init_str)
@@ -181,7 +187,7 @@ class CryptoBgpsec() :
 
         hashMsg = SCA_HashMessage()
         hashMsg.ownedByAPI = 0
-        hashMsg.bufferSize = 100
+        hashMsg.bufferSize = self._BUFF_SIZE
         hashMsg.buffer  = None
         hashMsg.segmentCount = 1
         hashMsg.hashMessageValPtr = None
@@ -216,7 +222,7 @@ if __name__ == '__main__' :
     ret_sig = crtbgp.crypto_sign(60002, 60003, "10.1.1.2", 24, ski_data)
 
     print ret_sig
-    exit()
+    #exit()
 
     #path_type = ctypes.c_char_p
     #path_str = path_type("/opt/project/srx_test1/keys/")
