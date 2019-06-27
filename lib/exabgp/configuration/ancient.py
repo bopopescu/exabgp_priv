@@ -761,7 +761,12 @@ class Configuration (object):
             if command == 'bgpsec_crypto_init':
                 self.logger.configuration('+++ bgpsec crypto init file at: %s' % ''.join(tokens[1:]))
                 return self._set_bgpsec_crypto_init(scope, 'bgpsec_crypto_init', tokens[1:])
-
+            if command == 'bgpsec_pre_asns':
+                self.logger.configuration('+++ previous asn:  %s' % ''.join(tokens[1:]))
+                return self._set_bgpsec_pre_asns(scope, 'bgpsec_pre_asns', tokens[1:])
+            if command == 'bgpsec_pre_skis':
+                self.logger.configuration('+++ previous ski:  %s' % ''.join(tokens[1:]))
+                return self._set_bgpsec_pre_skis(scope, 'bgpsec_pre_skis', tokens[1:])
 
 
         elif name == 'family':
@@ -1369,6 +1374,14 @@ class Configuration (object):
             if value:
                 neighbor.bgpsec_crypto_init = value
                 print 'bgpsec crypto library init: %s' % value
+            value = local_scope.get('bgpsec_pre_asns', '')
+            if value:
+                neighbor.bgpsec_pre_asns = value
+                print 'bgpsec previous asns: %s' % value
+            value = local_scope.get('bgpsec_pre_skis', '')
+            if value:
+                neighbor.bgpsec_pre_skis = value
+                print 'bgpsec previous skis: %s' % value
 
             neighbor.changes = local_scope.get('announce',[])
             messages = local_scope.get('operational',[])
@@ -1552,7 +1565,7 @@ class Configuration (object):
                     'passive','listen','hold-time','add-path','graceful-restart','md5',
                     'ttl-security','multi-session','group-updates','asn4','aigp',
                     'auto-flush','adj-rib-out','manual-eor', 'bgpsec', 'ski', 'bgpsec_libloc',
-                    'bgpsec_openssl_lib', 'bgpsec_crypto_init'
+                    'bgpsec_openssl_lib', 'bgpsec_crypto_init', 'bgpsec_pre_asns', 'bgpsec_pre_skis'
                 ]
             )
             if r is False:
@@ -1592,6 +1605,13 @@ class Configuration (object):
         scope[-1][command] = value
         return True
 
+    def _set_bgpsec_pre_asns (self, scope, command, value):
+        scope[-1][command] = value
+        return True
+
+    def _set_bgpsec_pre_skis (self, scope, command, value):
+        scope[-1][command] = value
+        return True
 
     def _set_ip (self, scope, command, value):
         try:

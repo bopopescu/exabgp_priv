@@ -77,6 +77,8 @@ class Neighbor (object):
         self.ski = []
         self.bgpsec_openssl_lib = []
         self.bgpsec_crypto_init = []
+        self.bgpsec_pre_asns = []
+        self.bgpsec_pre_skis = []
         #
         # TODO: Later Need to add modification code with 'ski' in __eq__ and __print for
         # comparison and printing

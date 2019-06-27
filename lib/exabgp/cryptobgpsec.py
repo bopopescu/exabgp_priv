@@ -20,11 +20,12 @@ import struct
 """
 
 bgpopenssl_file     = '/users/kyehwanl/Quagga_test/Proces_Performance/QuaggaSRxSuite/_inst/lib/srx/libSRxBGPSecOpenSSL.so'
-#srxcryptoapi_file   = '/opt/project/srx_test1/api/.libs/libSRxCryptoAPI.so'
+srxcryptoapi_file   = '/users/kyehwanl/Quagga_test/Proces_Performance/QuaggaSRxSuite/_inst/lib/srx/libSRxCryptoAPI.so'
 _path = os.path.join(*(os.path.split(__file__)[:-1] + (bgpopenssl_file,)))
+_path_crypto = os.path.join(*(os.path.split(__file__)[:-1] + (srxcryptoapi_file,)))
 
 bgpopenssl = ctypes.cdll.LoadLibrary(_path)
-#srxcryptoapi = ctypes.cdll.LoadLibrary(srxcryptoapi_file)
+srxcryptoapi = ctypes.cdll.LoadLibrary(_path_crypto )
 
 
 
@@ -83,6 +84,26 @@ class SCA_BGPSecSignData(ctypes.Structure):
                 ('hashMessage', ctypes.POINTER(SCA_HashMessage)),
                 ('signature',   ctypes.POINTER(SCA_Signature))]
 
+#typedef struct
+#{
+#  u_int32_t    myAS;
+#  sca_status_t status;
+#  u_int8_t*    bgpsec_path_attr;
+#  SCA_Prefix*  nlri;
+#  SCA_HashMessage*  hashMessage[2];
+#} SCA_BGPSecValidationData;
+
+# structure SCA_BGPSecValidationData {}
+class SCA_BGPSecValidationData(ctypes.Structure):
+    _fields_ = [('myAS',        ctypes.c_uint32),
+                ('status',      ctypes.c_uint32),
+                ('bgpsec_path_attr', ctypes.c_char_p),
+                ('nlri',        ctypes.POINTER(SCA_Prefix)),
+                ('hashMessage', ctypes.POINTER(SCA_HashMessage) * 2)]
+
+SCA_ECDSA_ALGORITHM = 1
+
+
 # int sign(int count, SCA_BGPSecSignData** bgpsec_data)
 sign = bgpopenssl.sign
 sign.argtypes = (ctypes.c_int, ctypes.POINTER(ctypes.POINTER(SCA_BGPSecSignData)))
@@ -99,14 +120,31 @@ init = bgpopenssl.init
 init.argtypes = (ctypes.POINTER(ctypes.c_char), ctypes.c_int, ctypes.POINTER(ctypes.c_uint32))
 init.restype = ctypes.c_int
 
+"""
 # sca_SetKeyPath needed in libSRxCryptoAPI.so
 # int sca_SetKeyPath (char* key_path)
 #       sca_SetKeyPath((char *)key_volt);
 # key_volt = "/opt/project/srx_test1/keys/";
+"""
 
-#setKeyPath = srxcryptoapi.sca_SetKeyPath
-#setKeyPath.argtypes = (ctypes.POINTER(ctypes.c_char),)
-#setKeyPath.restype = ctypes.c_int
+setKeyPath = srxcryptoapi.sca_SetKeyPath
+setKeyPath.argtypes = ctypes.POINTER(ctypes.c_char),
+setKeyPath.restype = ctypes.c_int
+
+#void sca_printStatus(sca_status_t status)
+
+sca_printStatus = srxcryptoapi.sca_printStatus
+sca_printStatus.argtype = ctypes.c_uint32
+sca_printStatus.restype = None
+
+"""
+int sca_generateHashMessage(SCA_BGPSecValidationData* data, u_int8_t algoID,
+                            sca_status_t* status)
+"""
+sca_generateHashMessage = srxcryptoapi.sca_generateHashMessage
+sca_generateHashMessage.argtype = (ctypes.POINTER(SCA_BGPSecValidationData),
+                                   ctypes.c_uint8, ctypes.POINTER(ctypes.c_uint32))
+sca_generateHashMessage.restype = ctypes.c_int
 
 
 class CryptoBgpsec() :
@@ -115,6 +153,9 @@ class CryptoBgpsec() :
     _ALGO_ID = 1
     _PCOUNT = 1
     _FLAGS = 0
+    _SCA_ECDSA_ALGORITHM = 1
+
+    bgpsec_ValidationData = []
 
     def __init__ (self, negotiated=None):
         self.negotiated = negotiated
@@ -122,17 +163,22 @@ class CryptoBgpsec() :
 
         if negotiated != None :
             self.bgpsec_openssl_lib = self.negotiated.neighbor.bgpsec_openssl_lib[0]
+            self.bgpsec_libloc = self.negotiated.neighbor.bgpsec_libloc[0]
         else :
             self.bgpsec_openssl_lib = '/users/kyehwanl/Quagga_test/Proces_Performance/QuaggaSRxSuite/_inst/lib/srx/libSRxBGPSecOpenSSL.so'
+            self.bgpsec_libloc = '/users/kyehwanl/Quagga_test/Proces_Performance/QuaggaSRxSuite/_inst/lib/srx/libSRxCryptoAPI.so'
+
         self._path = os.path.join(*(os.path.split(__file__)[:-1] + (self.bgpsec_openssl_lib,)))
         self.bgpsec_openssl = ctypes.cdll.LoadLibrary(self._path)
+
+        self._path_crypto = os.path.join(*(os.path.split(__file__)[:-1] + (self.bgpsec_libloc,)))
+        self.srxcryptoapi = ctypes.cdll.LoadLibrary(self._path_crypto )
 
 
         # int sign(int count, SCA_BGPSecSignData** bgpsec_data)
         self.sign = self.bgpsec_openssl.sign
         self.sign.argtypes = (ctypes.c_int, ctypes.POINTER(ctypes.POINTER(SCA_BGPSecSignData)))
         self.sign.restype = ctypes.c_int
-
 
         # int _sign(SCA_BGPSecSignData* bgpsec_data)
         self._sign = self.bgpsec_openssl._sign
@@ -144,6 +190,16 @@ class CryptoBgpsec() :
         self.init.argtypes = (ctypes.POINTER(ctypes.c_char), ctypes.c_int, ctypes.POINTER(ctypes.c_uint32))
         self.init.restype = ctypes.c_int
 
+        #int sca_generateHashMessage(SCA_BGPSecValidationData* data, u_int8_t algoID, sca_status_t* status)
+        self.sca_generateHashMessage = srxcryptoapi.sca_generateHashMessage
+        self.sca_generateHashMessage.argtype = (ctypes.POINTER(SCA_BGPSecValidationData),
+                                        ctypes.c_uint8, ctypes.POINTER(ctypes.c_uint32))
+        self.sca_generateHashMessage.restype = ctypes.c_int
+
+        self.hashMessageData = None
+
+
+
     def crypto_init (self, init_str, debug_type):
         ret_init_value = self.crypto_init_value_type(init_str)
         initReturnVal = ctypes.c_uint32()
@@ -153,7 +209,7 @@ class CryptoBgpsec() :
         #return initReturnVal
 
 
-    def crypto_sign (self, host_asn, peer_asn, prefix_str, nlri_mask, ski_data ) :
+    def crypto_sign (self, host_asn, peer_asn, nlri_ip, nlri_mask, ski_data, bgpsec_pre_attrs=None ) :
 
         host = SCA_BGPSEC_SecurePathSegment()
         host.pCount = 1
@@ -161,7 +217,7 @@ class CryptoBgpsec() :
         host.asn = socket.htonl(host_asn)
 
         addr = ADDR()
-        addr.ipV4 = socket.htonl(struct.unpack("!L", socket.inet_aton(prefix_str))[0])
+        addr.ipV4 = socket.htonl(struct.unpack("!L", socket.inet_aton(nlri_ip))[0])
 
         nlri = SCA_Prefix()
         nlri.afi = socket.htons(1)
@@ -185,13 +241,10 @@ class CryptoBgpsec() :
         bgpsec_data.algorithmID = 1
         bgpsec_data.status = 1
 
-        hashMsg = SCA_HashMessage()
-        hashMsg.ownedByAPI = 0
-        hashMsg.bufferSize = self._BUFF_SIZE
-        hashMsg.buffer  = None
-        hashMsg.segmentCount = 1
-        hashMsg.hashMessageValPtr = None
-        bgpsec_data.hashMessage = None
+        if bgpsec_pre_attrs:
+            bgpsec_data.hashMessage = self.hashMessageData
+        else:
+            bgpsec_data.hashMessage = None
 
         signatureData = SCA_Signature()
         bgpsec_data.signature = ctypes.pointer(signatureData)
@@ -201,16 +254,58 @@ class CryptoBgpsec() :
 
         ret_sig = None
         if ret_val ==  1:  #API_SUCCESS :1
-            ret_sig = [ chr(bgpsec_data.signature.contents.sigBuff[i]) for i in range(0, bgpsec_data.signature.contents.sigLen)]
+            ret_sig = [chr(bgpsec_data.signature.contents.sigBuff[i])
+                       for i in range(0, bgpsec_data.signature.contents.sigLen)]
         return ret_sig
 
 
 
+    def make_bgpsecValData (self, host_asn, nlri_ip, nlri_mask, bgpsec_attrs) :
+
+        if not bgpsec_attrs :
+            return 0
+
+        addr = ADDR()
+        addr.ipV4 = socket.htonl(struct.unpack("!L", socket.inet_aton(nlri_ip))[0])
+
+        nlri = SCA_Prefix()
+        nlri.afi = socket.htons(1)
+        nlri.safi = 1
+        nlri.length = nlri_mask
+        nlri.addr = addr
+
+        valData = SCA_BGPSecValidationData()
+        valData.myAS = socket.htonl(host_asn)
+        valData.status = 1
+        valData.bgpsec_path_attr = bgpsec_attrs
+        valData.nlri = ctypes.pointer(nlri)
+        #valData.hashMessage = None
+
+        statusReturnVal = ctypes.c_uint32()
+        retByte = self.sca_generateHashMessage(ctypes.pointer(valData),
+                                               self._SCA_ECDSA_ALGORITHM, statusReturnVal)
+        if statusReturnVal.value != 0: # API_STATUS_OK: 0
+            return 0
+
+        self.hashMessageData = valData.hashMessage[0]
+
+        print '%d byte used from calling genenrate-HashMessage' % retByte
+        hLen = valData.hashMessage[0].contents.hashMessageValPtr[0].contents.hashMessageLength
+        for i in range (hLen):
+            print hex(valData.hashMessage[0].contents.hashMessageValPtr[0].contents.hashMessagePtr[i]),
+
+
+        return retByte
 
 
 
 if __name__ == '__main__' :
-    print '-------- SRxCryptoAPI library testing WITH CLASS ------------'
+    """
+    -------------------------------------------------------------------
+    UNCOMMENT this above line, if you want to test with a class instance
+    -------------------------------------------------------------------
+
+    print '-------- BGPSec OpenSSL library testing WITH CLASS ------------'
 
     print '++ Initiating'
     crtbgp = CryptoBgpsec()
@@ -223,19 +318,28 @@ if __name__ == '__main__' :
 
     print ret_sig
     #exit()
+    """
 
+    print '-------- Testing SRxCryptoAPI library ----------'
     #path_type = ctypes.c_char_p
     #path_str = path_type("/opt/project/srx_test1/keys/")
     #path_return = setKeyPath(path_str)
+    # set-KeyPath function NOT Working
 
-    # Before calling sign function, need to call init() function call from the
-    # library in order to load private keys used to sign
-    #
-    # int init(const char* value, int debugLevel, sca_status_t* status);
-    #    value:  init_value
-    #           = "PUB:/opt/project/srx_test1/keys/ski-list.txt;PRIV:/opt/project/srx_test1/keys/priv-ski-list.txt";
+    sca_printStatus(1) # works
 
-    print '-------- SRxCryptoAPI library testing ------------'
+
+
+    """
+     Before calling sign function, need to call init() function call from the
+     library in order to load private keys used to sign
+
+     int init(const char* value, int debugLevel, sca_status_t* status);
+        value:  init_value
+               = "PUB:/opt/project/srx_test1/keys/ski-list.txt;PRIV:/opt/project/srx_test1/keys/priv-ski-list.txt";
+    """
+
+    print '-------- BGPSec OpenSSL library testing ------------'
     value_type = ctypes.c_char_p
     value = value_type("PRIV:/users/kyehwanl/proj-bgp/extras/srxcryptoapi/keys/priv-ski-list.txt")
     #value = value_type("PRIV:/opt/project/srx_test1/keys/priv-ski-list.txt")
@@ -310,8 +414,43 @@ if __name__ == '__main__' :
     #ret_val = sign(1, bgpsec_data)
 
 
+    """
+    Testing sca-generationHashMessage in SRxCryptoAPI library
+    """
+    bgpsec_attr_type = ctypes.c_char_p
+    bgpsec_attrs = [
+        0x90, 0x21, 0x00, 0x68, 0x00, 0x08, 0x01, 0x00, 0x00, 0x00, 0xfd, 0xf3,
+        0x00, 0x60, 0x01, 0x45, 0xca, 0xd0, 0xac, 0x44, 0xf7, 0x7e, 0xfa, 0xa9, 0x46, 0x02, 0xe9, 0x98,
+        0x43, 0x05, 0x21, 0x5b, 0xf4, 0x7d, 0xcd, 0x00, 0x47, 0x30, 0x45, 0x02, 0x21, 0x00, 0xb3, 0xe8,
+        0xcc, 0xd2, 0xcb, 0xba, 0x96, 0x47, 0xe3, 0x1f, 0x74, 0x97, 0xa3, 0x77, 0x74, 0x55, 0x86, 0x44,
+        0x09, 0x67, 0xec, 0x02, 0x60, 0x3f, 0x05, 0xe2, 0x1b, 0x47, 0x62, 0xab, 0xde, 0xd9, 0x02, 0x20,
+        0x05, 0x58, 0xe5, 0x72, 0xc5, 0x61, 0x91, 0x47, 0x99, 0x86, 0x16, 0x3e, 0x1e, 0x4a, 0x92, 0x5e,
+        0xe8, 0x26, 0x03, 0x1f, 0x5d, 0x5a, 0x36, 0x92, 0x18, 0x1e, 0x8b, 0x3e, 0xa7, 0x26, 0x4b, 0x61]
+
+    battrs_bin = [ chr(bgpsec_attrs[i]) for i in range (0, len(bgpsec_attrs))]
+    battrs_str = bgpsec_attr_type('%s' % ''.join(["%s" % x for x in battrs_bin]))
+
+    hashMsgData = SCA_HashMessage()
+
+    valData = SCA_BGPSecValidationData()
+    valData.myAS = socket.htonl(60003)
+    valData.status = 1
+    valData.bgpsec_path_attr = battrs_str
+    #valData.bgpsec_path_attr = ctypes.pointer(signatureData)
+    valData.nlri = ctypes.pointer(nlri)
+    #valData.hashMessage = ctypes.pointer(hashMsgData)
 
 
+    statusReturnVal = ctypes.c_uint32()
+    retByte = sca_generateHashMessage(ctypes.pointer(valData), SCA_ECDSA_ALGORITHM, statusReturnVal)
+
+    print "status return value: %d " % statusReturnVal.value # API_STATUS_OK : 0
+    print '%d byte used from calling genenrate-HashMessage' % retByte
+    hLen = valData.hashMessage[0].contents.hashMessageValPtr[0].contents.hashMessageLength
+    #result = [chr(i) for i in valData.hashMessage[0].contents.hashMessageValPtr[0].contents.hashMessagePtr]
+
+    for i in range (hLen):
+        print hex(valData.hashMessage[0].contents.hashMessageValPtr[0].contents.hashMessagePtr[i]),
 
 
 
