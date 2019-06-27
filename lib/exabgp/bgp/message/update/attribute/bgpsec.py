@@ -91,17 +91,17 @@ class BGPSEC (Attribute):
               skis.append(self.dict_asn_ski[asn])
               bOrigin = False
 
-            asns.reverse()
-            skis.reverse()
+            asns.reverse(), skis.reverse()
             battr = self.bgpsec_pack (negotiated, asns, skis)
             self.bgpsec_pre_attrs.append(battr)
+            asns.reverse(), skis.reverse()
 
             if len(self.pre_asns) >1 and asn != self.pre_asns[0] :
               prev_asn = self.pre_asns[self.pre_asns.index(asn)-1]
               asns.append(prev_asn)
               skis.append(self.dict_asn_ski[prev_asn])
 
-            # To generate  SCA_BGPSecValidationData #FIXME: asn below should be changed with peer_as (target)
+            # To generate  SCA_BGPSecValidationData #FIXME: asn below should be changed with peer_as (target) ??
             self.crtbgp.make_bgpsecValData(asn, self.nlri_ip, self.nlri_mask, battr)
 
 
@@ -111,9 +111,10 @@ class BGPSEC (Attribute):
 
         if not asns:
             asns = copy.deepcopy(self.all_asns)
-            asns.reverse()
+            #asns.reverse()
 
-        for asn in reversed(asns):
+        #for asn in reversed(asns):
+        for asn in asns:
           segment.append(pack('!B', self.PCOUNT))
           segment.append(pack('!B', self.SP_FLAG))
           segment.append(pack('!L', asn))
@@ -178,11 +179,12 @@ class BGPSEC (Attribute):
 
         if not skis or not asns:
           skis = copy.deepcopy(self.all_skis)
-          skis.reverse()
+          #skis.reverse()
 
         # split SKI string into 2 letters
         step = 2
-        for ski in reversed(skis):
+        #for ski in reversed(skis):
+        for ski in skis:
           #self.ski_str = self.negotiated.neighbor.ski[0]
           self.ski_str = ski
           splitSKI = [ski[i:i+step] for i in range(0, len(ski), step) ]
