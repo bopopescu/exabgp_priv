@@ -264,7 +264,8 @@ class CryptoBgpsec() :
         bgpsec_data.signature = ctypes.pointer(signatureData)
 
 
-        ret_val = CryptoBgpsec._sign(bgpsec_data)
+        #ret_val = CryptoBgpsec._sign(bgpsec_data)
+        ret_val = CryptoBgpsec.sign(1, ctypes.pointer(bgpsec_data))
 
         ret_sig = None
         if ret_val ==  1:  #API_SUCCESS :1
@@ -417,16 +418,16 @@ if __name__ == '__main__' :
     signatureData = SCA_Signature()
     bgpsec_data.signature = ctypes.pointer(signatureData)
 
-    ret_val = _sign(bgpsec_data)
+    """ call _sign function in library """
+    """ int _sign(SCA_BGPSecSignData* bgpsec_data)  """
+    #ret_val = _sign(bgpsec_data)
 
 
-    #bs = ctypes.POINTER(SCA_BGPSecSignData)()
-    #ret_val = _sign(bs)
 
-    # call sign function in library
-    #bs = ctypes.POINTER(ctypes.POINTER(SCA_BGPSecSignData))()
-    #ret_val = sign(1, bs)
-    #ret_val = sign(1, bgpsec_data)
+    print "ctypes sign function called"
+    """ call sign function in library """
+    """ int sign(int count, SCA_BGPSecSignData** bgpsec_data)  """
+    ret_val = sign(1, ctypes.pointer(bgpsec_data))
 
 
     """

@@ -21,9 +21,6 @@ class BGPSEC (Attribute):
     PCOUNT  = 0x01
     SP_FLAG = 0x00 # secure path segment flag
     ALGO_ID = 0x01
-    #SKI     = 'C30433FA1975FF193181458FB902B501EA9789DC'
-    #SKI     = '492AAE72485D926CACDA2D259BE19DAE82DFBDE3'
-    #TEMP_SIG = "30 46 02 21 00 d5 e6 98 23 2a c6 ba b3 cf 23 30 b3 1e 0a 03 72 99 c6 14 13 55 fd 45 9d 3c 96 73 e4 c9 a0 14 ec 02 21 00 e1 03 f0 74 14 f3 ef 80 ca 99 15 10 3d df 0b 39 a7 45 cf eb 70 2f c5 13 39 45 7e cd f5 65 4d 4e"
     SIG_LEN = 2
     SKI_LEN = 20
     SEC_PATH_LEN = 2
@@ -161,11 +158,6 @@ class BGPSEC (Attribute):
 
     def _signature (self, asn=None, ski=None):
         signature = []
-
-        #step = 3
-        #splitTEMP_SIG = [self.TEMP_SIG[i:i+step-1] for i in range(0, len(self.TEMP_SIG), step)]
-        #signature = [ chr(int(splitTEMP_SIG[i], 16)) for i in range (0, len(splitTEMP_SIG))]
-
         signature = self._signature_from_lib(asn, ski)
         if not signature : # in case None
           return None
@@ -188,7 +180,6 @@ class BGPSEC (Attribute):
           #self.ski_str = self.negotiated.neighbor.ski[0]
           self.ski_str = ski
           splitSKI = [ski[i:i+step] for i in range(0, len(ski), step) ]
-          #splitSKI = [self.SKI[i:i+step] for i in range(0, len(self.SKI), step) ]
 
           # convert hexstring into integer
           result = [ chr( int(splitSKI[i], 16)) for i in range (0, len(splitSKI))]
