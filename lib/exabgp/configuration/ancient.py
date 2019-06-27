@@ -1606,10 +1606,14 @@ class Configuration (object):
         return True
 
     def _set_bgpsec_pre_asns (self, scope, command, value):
+        if ' ' in value[0]:
+            value = value[0].split(' ')
         scope[-1][command] = value
         return True
 
     def _set_bgpsec_pre_skis (self, scope, command, value):
+        if ' ' in value[0]:
+            value = value[0].split(' ')
         scope[-1][command] = value
         return True
 

@@ -39,23 +39,22 @@ class BGPSEC (Attribute):
     signature_block_len = 0
 
     _init_lib = False
-    _init_config = False
-
-    ski_str =''
-
-    pre_asns = []
-    pre_skis = []
-    dict_asn_ski = {}
-
-    all_asns = []
-    all_skis = []
-
-    bgpsec_pre_attrs = []
-    dict_signatures = {}
 
     def __init__ (self, negotiated, nlri={}, packed=None):
         self.negotiated = negotiated
         self.packed = packed
+
+        self.ski_str =''
+
+        self.pre_asns = []
+        self.pre_skis = []
+        self.dict_asn_ski = {}
+
+        self.all_asns = []
+        self.all_skis = []
+
+        self.bgpsec_pre_attrs = []
+        self.dict_signatures = {}
 
         if nlri:
             self.nlri_ip = nlri[(1,1)][0].ip
@@ -63,48 +62,47 @@ class BGPSEC (Attribute):
 
         self.crtbgp = cryptobgpsec.CryptoBgpsec(negotiated)
 
+        # fill all the asn ski
+        self.all_asns.append(self.negotiated.local_as)
+        self.all_skis.extend(self.negotiated.neighbor.ski)
 
-        if not BGPSEC._init_config :
-          BGPSEC._init_config = True
-          self.all_asns.append(self.negotiated.local_as) # default
-          self.all_skis.extend(self.negotiated.neighbor.ski) # default
+        # TODO: need if-statmement for comparing the number of asns and skis
+        if len(negotiated.neighbor.bgpsec_pre_asns) and len(negotiated.neighbor.bgpsec_pre_skis) :
 
-          # TODO: need if-statmement for comparing the number of asns and skis
-          if len(negotiated.neighbor.bgpsec_pre_asns) and len(negotiated.neighbor.bgpsec_pre_skis) :
+          # pre asns, pre skis : came from the configuration 'bgpsec_pre_asns', 'bgpsec_pre_skis'
+          self.pre_asns.extend([int(i) for i in negotiated.neighbor.bgpsec_pre_asns])
+          self.pre_skis = negotiated.neighbor.bgpsec_pre_skis
 
-            # pre asns, pre skis : came from the configuration 'bgpsec_pre_asns', 'bgpsec_pre_skis'
-            self.pre_asns.extend([int(i) for i in negotiated.neighbor.bgpsec_pre_asns])
-            self.pre_skis = negotiated.neighbor.bgpsec_pre_skis
+          # all asns and skis include its own asn which doesn't belong to pre-asns
+          self.all_asns.extend(self.pre_asns)
+          self.all_skis.extend(self.pre_skis)
 
-            # all asns and skis include its own asn which doesn't belong to pre-asns
-            self.all_asns.extend(self.pre_asns)
-            self.all_skis.extend(self.pre_skis)
+          #dict_asn_ski = dict (zip(self.pre_asns, self.pre_skis)) # python 3
+          self.dict_asn_ski = {k: v for k, v in zip(self.pre_asns, self.pre_skis)} # python 2.7
 
-            #dict_asn_ski = dict (zip(self.pre_asns, self.pre_skis)) # python 3
-            self.dict_asn_ski = {k: v for k, v in zip(self.pre_asns, self.pre_skis)} # python 2.7
+          # making bgpsec stacks for encapsulation with recursive call
+          bOrigin = True
+          asns = []
+          skis = []
+          for asn in self.pre_asns[::-1] :
 
-            # making bgpsec stacks for encapsulation with recursive call
-            bOrigin = True
-            asns = []
-            skis = []
-            for asn in self.pre_asns[::-1] :
+            if bOrigin :
+              asns.append(asn)
+              skis.append(self.dict_asn_ski[asn])
+              bOrigin = False
 
-              if bOrigin :
-                asns.append(asn)
-                skis.append(self.dict_asn_ski[asn])
-                bOrigin = False
+            asns.reverse()
+            skis.reverse()
+            battr = self.bgpsec_pack (negotiated, asns, skis)
+            self.bgpsec_pre_attrs.append(battr)
 
-              asns.reverse()
-              skis.reverse()
-              battr = self.bgpsec_pack (negotiated, asns, skis)
-              self.bgpsec_pre_attrs.append(battr)
+            if len(self.pre_asns) >1 and asn != self.pre_asns[0] :
+              prev_asn = self.pre_asns[self.pre_asns.index(asn)-1]
+              asns.append(prev_asn)
+              skis.append(self.dict_asn_ski[prev_asn])
 
-              if len(self.pre_asns) >1 and asn != self.pre_asns[0] :
-                prev_asn = self.pre_asns[self.pre_asns.index(asn)-1]
-                asns.append(prev_asn)
-
-              # To generate  SCA_BGPSecValidationData #FIXME: asn below should be changed with peer_as (target)
-              self.crtbgp.make_bgpsecValData(asn, self.nlri_ip, self.nlri_mask, battr)
+            # To generate  SCA_BGPSecValidationData #FIXME: asn below should be changed with peer_as (target)
+            self.crtbgp.make_bgpsecValData(asn, self.nlri_ip, self.nlri_mask, battr)
 
 
 

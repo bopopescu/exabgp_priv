@@ -154,47 +154,61 @@ class CryptoBgpsec() :
     _PCOUNT = 1
     _FLAGS = 0
     _SCA_ECDSA_ALGORITHM = 1
+    _crypto_init_config = False
+
+    # ctype variable declaration
+    bgpsec_openssl_lib = None
+    bgpsec_libloc   = None
+    bgpsec_openssl  = None
+    srxcryptoapi    = None
+    sign            = None
+    _sign           = None
+    init            = None
+    sca_generateHashMessage = None
 
     bgpsec_ValidationData = []
 
     def __init__ (self, negotiated=None):
         self.negotiated = negotiated
-        self.crypto_init_value_type = ctypes.c_char_p
 
-        if negotiated != None :
-            self.bgpsec_openssl_lib = self.negotiated.neighbor.bgpsec_openssl_lib[0]
-            self.bgpsec_libloc = self.negotiated.neighbor.bgpsec_libloc[0]
-        else :
-            self.bgpsec_openssl_lib = '/users/kyehwanl/Quagga_test/Proces_Performance/QuaggaSRxSuite/_inst/lib/srx/libSRxBGPSecOpenSSL.so'
-            self.bgpsec_libloc = '/users/kyehwanl/Quagga_test/Proces_Performance/QuaggaSRxSuite/_inst/lib/srx/libSRxCryptoAPI.so'
+        if not CryptoBgpsec._crypto_init_config : # only once execution
+            CryptoBgpsec._crypto_init_config = True
+            self.crypto_init_value_type = ctypes.c_char_p
 
-        self._path = os.path.join(*(os.path.split(__file__)[:-1] + (self.bgpsec_openssl_lib,)))
-        self.bgpsec_openssl = ctypes.cdll.LoadLibrary(self._path)
+            if negotiated != None :
+                CryptoBgpsec.bgpsec_openssl_lib = self.negotiated.neighbor.bgpsec_openssl_lib[0]
+                CryptoBgpsec.bgpsec_libloc = self.negotiated.neighbor.bgpsec_libloc[0]
+            else :
+                CryptoBgpsec.bgpsec_openssl_lib = '/users/kyehwanl/Quagga_test/Proces_Performance/QuaggaSRxSuite/_inst/lib/srx/libSRxBGPSecOpenSSL.so'
+                CryptoBgpsec.bgpsec_libloc = '/users/kyehwanl/Quagga_test/Proces_Performance/QuaggaSRxSuite/_inst/lib/srx/libSRxCryptoAPI.so'
 
-        self._path_crypto = os.path.join(*(os.path.split(__file__)[:-1] + (self.bgpsec_libloc,)))
-        self.srxcryptoapi = ctypes.cdll.LoadLibrary(self._path_crypto )
+            self._path = os.path.join(*(os.path.split(__file__)[:-1] + (CryptoBgpsec.bgpsec_openssl_lib,)))
+            CryptoBgpsec.bgpsec_openssl = ctypes.cdll.LoadLibrary(self._path)
+
+            self._path_crypto = os.path.join(*(os.path.split(__file__)[:-1] + (self.bgpsec_libloc,)))
+            CryptoBgpsec.srxcryptoapi = ctypes.cdll.LoadLibrary(self._path_crypto )
 
 
-        # int sign(int count, SCA_BGPSecSignData** bgpsec_data)
-        self.sign = self.bgpsec_openssl.sign
-        self.sign.argtypes = (ctypes.c_int, ctypes.POINTER(ctypes.POINTER(SCA_BGPSecSignData)))
-        self.sign.restype = ctypes.c_int
+            # int sign(int count, SCA_BGPSecSignData** bgpsec_data)
+            CryptoBgpsec.sign = CryptoBgpsec.bgpsec_openssl.sign
+            CryptoBgpsec.sign.argtypes = (ctypes.c_int, ctypes.POINTER(ctypes.POINTER(SCA_BGPSecSignData)))
+            CryptoBgpsec.sign.restype = ctypes.c_int
 
-        # int _sign(SCA_BGPSecSignData* bgpsec_data)
-        self._sign = self.bgpsec_openssl._sign
-        self._sign.argtypes = ctypes.POINTER(SCA_BGPSecSignData),
-        self._sign.restype = ctypes.c_int
+            # int _sign(SCA_BGPSecSignData* bgpsec_data)
+            CryptoBgpsec._sign = CryptoBgpsec.bgpsec_openssl._sign
+            CryptoBgpsec._sign.argtypes = ctypes.POINTER(SCA_BGPSecSignData),
+            CryptoBgpsec._sign.restype = ctypes.c_int
 
-        # int init(const char* value, int debugLevel, sca_status_t* status);
-        self.init = self.bgpsec_openssl.init
-        self.init.argtypes = (ctypes.POINTER(ctypes.c_char), ctypes.c_int, ctypes.POINTER(ctypes.c_uint32))
-        self.init.restype = ctypes.c_int
+            # int init(const char* value, int debugLevel, sca_status_t* status);
+            CryptoBgpsec.init = CryptoBgpsec.bgpsec_openssl.init
+            CryptoBgpsec.init.argtypes = (ctypes.POINTER(ctypes.c_char), ctypes.c_int, ctypes.POINTER(ctypes.c_uint32))
+            CryptoBgpsec.init.restype = ctypes.c_int
 
-        #int sca_generateHashMessage(SCA_BGPSecValidationData* data, u_int8_t algoID, sca_status_t* status)
-        self.sca_generateHashMessage = srxcryptoapi.sca_generateHashMessage
-        self.sca_generateHashMessage.argtype = (ctypes.POINTER(SCA_BGPSecValidationData),
-                                        ctypes.c_uint8, ctypes.POINTER(ctypes.c_uint32))
-        self.sca_generateHashMessage.restype = ctypes.c_int
+            #int sca_generateHashMessage(SCA_BGPSecValidationData* data, u_int8_t algoID, sca_status_t* status)
+            CryptoBgpsec.sca_generateHashMessage = CryptoBgpsec.srxcryptoapi.sca_generateHashMessage
+            CryptoBgpsec.sca_generateHashMessage.argtype = (ctypes.POINTER(SCA_BGPSecValidationData),
+                                            ctypes.c_uint8, ctypes.POINTER(ctypes.c_uint32))
+            CryptoBgpsec.sca_generateHashMessage.restype = ctypes.c_int
 
         self.hashMessageData = None
 
@@ -205,7 +219,7 @@ class CryptoBgpsec() :
         initReturnVal = ctypes.c_uint32()
 
         # call API's init function
-        self.init(ret_init_value, debug_type, initReturnVal)
+        CryptoBgpsec.init(ret_init_value, debug_type, initReturnVal)
         #return initReturnVal
 
 
@@ -250,7 +264,7 @@ class CryptoBgpsec() :
         bgpsec_data.signature = ctypes.pointer(signatureData)
 
 
-        ret_val = self._sign(bgpsec_data)
+        ret_val = CryptoBgpsec._sign(bgpsec_data)
 
         ret_sig = None
         if ret_val ==  1:  #API_SUCCESS :1
@@ -282,7 +296,7 @@ class CryptoBgpsec() :
         #valData.hashMessage = None
 
         statusReturnVal = ctypes.c_uint32()
-        retByte = self.sca_generateHashMessage(ctypes.pointer(valData),
+        retByte = CryptoBgpsec.sca_generateHashMessage(ctypes.pointer(valData),
                                                self._SCA_ECDSA_ALGORITHM, statusReturnVal)
         if statusReturnVal.value != 0: # API_STATUS_OK: 0
             return 0
@@ -293,6 +307,7 @@ class CryptoBgpsec() :
         hLen = valData.hashMessage[0].contents.hashMessageValPtr[0].contents.hashMessageLength
         for i in range (hLen):
             print hex(valData.hashMessage[0].contents.hashMessageValPtr[0].contents.hashMessagePtr[i]),
+        print '\r'
 
 
         return retByte
