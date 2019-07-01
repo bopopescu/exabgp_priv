@@ -116,8 +116,11 @@ class Capabilities (dict):
         self[Capability.CODE.MULTISESSION] = MultiSession().set([Capability.CODE.MULTIPROTOCOL])
 
     def _bgpsec (self, neighbor):
-        self[Capability.CODE.BGPSEC] = BGPSEC()
-
+        sr = 0
+        if neighbor.bgpsec_send_receive:
+            tl = neighbor.bgpsec_send_receive
+            sr = int(tl[0])
+        self[Capability.CODE.BGPSEC] = BGPSEC(sr)
 
     def new (self, neighbor, restarted):
         self._protocol(neighbor)

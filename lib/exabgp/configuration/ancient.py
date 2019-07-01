@@ -767,6 +767,9 @@ class Configuration (object):
             if command == 'bgpsec_pre_skis':
                 self.logger.configuration('+++ previous ski:  %s' % ''.join(tokens[1:]))
                 return self._set_bgpsec_pre_skis(scope, 'bgpsec_pre_skis', tokens[1:])
+            if command == 'bgpsec_send_receive':
+                self.logger.configuration('+++ bgpsec capability : %s' % ''.join(tokens[1:]))
+                return self._set_bgpsec_send_receive (scope, 'bgpsec_send_receive', tokens[1:])
 
 
         elif name == 'family':
@@ -1382,6 +1385,10 @@ class Configuration (object):
             if value:
                 neighbor.bgpsec_pre_skis = value
                 print 'bgpsec previous skis: %s' % value
+            value = local_scope.get('bgpsec_send_receive', '0')
+            if value:
+                neighbor.bgpsec_send_receive = value
+                print 'bgpsec capability directions : %s' % value
 
             neighbor.changes = local_scope.get('announce',[])
             messages = local_scope.get('operational',[])
@@ -1565,7 +1572,8 @@ class Configuration (object):
                     'passive','listen','hold-time','add-path','graceful-restart','md5',
                     'ttl-security','multi-session','group-updates','asn4','aigp',
                     'auto-flush','adj-rib-out','manual-eor', 'bgpsec', 'ski', 'bgpsec_libloc',
-                    'bgpsec_openssl_lib', 'bgpsec_crypto_init', 'bgpsec_pre_asns', 'bgpsec_pre_skis'
+                    'bgpsec_openssl_lib', 'bgpsec_crypto_init', 'bgpsec_pre_asns', 'bgpsec_pre_skis',
+                    'bgpsec_send_receive'
                 ]
             )
             if r is False:
@@ -1614,6 +1622,10 @@ class Configuration (object):
     def _set_bgpsec_pre_skis (self, scope, command, value):
         if ' ' in value[0]:
             value = value[0].split(' ')
+        scope[-1][command] = value
+        return True
+
+    def _set_bgpsec_send_receive (self, scope, command, value):
         scope[-1][command] = value
         return True
 
