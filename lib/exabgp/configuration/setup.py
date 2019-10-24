@@ -162,6 +162,12 @@ environment.configuration = {
 			'value': 'false',
 			'help':  'use short log format (not prepended with time,level,pid and source)',
 		},
+        'BGPSEC':  {
+			'read':  environment.boolean,
+			'write': environment.lower,
+			'value': 'true',
+			'help':  'report BGPSEC information (Signing status)',
+		},
 	},
 	'tcp':  {
 		'once': {

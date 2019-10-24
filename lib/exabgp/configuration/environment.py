@@ -299,6 +299,8 @@ class environment (object):
 			env.log.routes = True
 		if os.environ.get('DEBUG_ALL','').lower() in ['1','yes']:
 			env.log.all = True
+		if os.environ.get('DEBUG_BGPSEC','').lower() in ['1','yes']:
+			env.log.BGPSEC = True
 		if os.environ.get('DEBUG_CORE','').lower() in ['1','yes']:
 			env.log.reactor = True
 			env.log.daemon = True
@@ -307,6 +309,7 @@ class environment (object):
 			env.log.timer = True
 			env.log.routes = True
 			env.log.parser = False
+			env.log.BGPSEC = True
 
 		pid = os.environ.get('PID','')
 		if pid:

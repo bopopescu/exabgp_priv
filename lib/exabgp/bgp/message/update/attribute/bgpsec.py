@@ -14,6 +14,8 @@ from exabgp import cryptobgpsec
 #from struct import unpack
 import copy
 
+from exabgp.logger import Logger
+
 class BGPSEC (Attribute):
     ID = Attribute.CODE.BGPSEC
     FLAG = Attribute.Flag.OPTIONAL | Attribute.Flag.EXTENDED_LENGTH
@@ -34,6 +36,8 @@ class BGPSEC (Attribute):
     signature  = []
     secure_path_len = 0
     signature_block_len = 0
+    nlri_ip = ''
+    nlri_mask = 0
 
     _init_lib = False
 
@@ -52,10 +56,13 @@ class BGPSEC (Attribute):
 
         self.bgpsec_pre_attrs = []
         self.dict_signatures = {}
+        self.logger = Logger()
 
         if nlri:
             self.nlri_ip = nlri[(1,1)][0].ip
             self.nlri_mask = nlri[(1,1)][0].mask
+        else:
+            return None
 
         self.crtbgp = cryptobgpsec.CryptoBgpsec(negotiated)
 
@@ -161,6 +168,7 @@ class BGPSEC (Attribute):
         signature = []
         signature = self._signature_from_lib(asn, ski)
         if not signature : # in case None
+          self.logger.BGPSEC("Signature is not made due to Key issues")
           return None
 
         self.signature_block_len += len(signature)
@@ -194,7 +202,11 @@ class BGPSEC (Attribute):
             # TODO: need default action
             host_asn = None
 
-          sig_segment.append(self._signature(host_asn, ski))
+          sig_segment_value = self._signature(host_asn, ski)
+          if not sig_segment_value :
+              return None
+
+          sig_segment.append(sig_segment_value)
           self.signature_block_len += self.SIG_LEN + self.SKI_LEN
         return sig_segment
 
@@ -205,12 +217,16 @@ class BGPSEC (Attribute):
         sig_block.append(pack('!B', self.ALGO_ID))
         self.signature_block_len += len(chr(self.ALGO_ID))
         self.signature_segment = self._signature_segment(asns, skis)
+        if not self.signature_segment :
+            return None
         sig_block.extend(self.signature_segment)
         return sig_block
 
 
     def _signature_blocks (self, negotiated, asns=None, skis=None):
         self.signature_block = self._signature_block(negotiated, asns, skis)
+        if not self.signature_block :
+            return None
         return "%s%s" % ( pack('!H', (self.signature_block_len+self.SIG_BLOCK_LEN)), ''.join(self.signature_block))
 
 
@@ -221,7 +237,12 @@ class BGPSEC (Attribute):
         self.secure_path_len = 0
         self.signature_block_len = 0
 
-        bgpsec_attr = self._secure_path(negotiated, asns) + self._signature_blocks(negotiated, asns, skis)
+        attr_sp = self._secure_path(negotiated, asns)
+        attr_sb = self._signature_blocks(negotiated, asns, skis)
+
+        if not attr_sb :
+            return None
+        bgpsec_attr = attr_sp + attr_sb
 
         # make bgpsec_attr and packed have complete format of attribute (Flag, Type, Length, Value)
         self.packed = bgpsec_attr = self._attribute(bgpsec_attr)
@@ -230,7 +251,19 @@ class BGPSEC (Attribute):
     def pack (self, negotiated=None):
         #self.dict_asn_ski = None
         if negotiated:
-            return self.bgpsec_pack(negotiated)
+            bp = self.bgpsec_pack(negotiated)
+            if not bp :
+                return ''
+            return bp
+
+    @classmethod
+    def unpack (cls, data, negotiated):
+        mpnlri={}
+        return cls(negotiated, mpnlri)
+
+
+
+
 
 
 

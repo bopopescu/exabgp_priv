@@ -100,6 +100,7 @@ class Attribute (object):
             PMSI_TUNNEL:        'pmsi-tunnel',
             TUNNEL_ENCAP:       'tunnel-encaps',
             AIGP:               'aigp',
+            BGPSEC:             'bgpsec',
             0xfffc:             'internal-name',
             0xfffd:             'internal-withdraw',
             0xfffe:             'internal-watchdog',
